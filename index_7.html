@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>SKP SOLUTIONS — Zones de déplacement</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root{--marine:#1F2E57;--bleu:#0076E4;--vert:#16a34a;--gris:#5b6472;--panel-w:320px}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{font-family:"Carlito","Liberation Sans","Segoe UI",Arial,sans-serif;color:var(--marine)}
+  #map{position:absolute;inset:0;z-index:0;background:#0b1220}
+
+  #panel{position:absolute;top:14px;left:14px;z-index:1000;width:var(--panel-w);max-width:calc(100vw - 28px);background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 10px 30px rgba(10,18,34,.35);border:1px solid rgba(31,46,87,.12)}
+  #panel .head{background:var(--marine);color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer}
+  #panel .head .logo{width:34px;height:34px;border-radius:8px;background:var(--bleu);flex:none;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;letter-spacing:.5px}
+  #panel .head .t{line-height:1.15;flex:1}
+  #panel .head .t b{font-size:14px;letter-spacing:.4px;display:block}
+  #panel .head .t span{font-size:11.5px;opacity:.75}
+  #panel .head .chev{transition:transform .2s;font-size:13px;opacity:.85}
+  #panel.collapsed .body{display:none}
+  #panel.collapsed .head .chev{transform:rotate(-90deg)}
+
+  #panel .body{padding:12px 14px 14px}
+  .legend{list-style:none;margin:0;padding:0}
+  .legend li{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #eef1f5}
+  .legend li:last-child{border-bottom:0}
+  .sw{width:16px;height:16px;border-radius:4px;flex:none;border:2px solid rgba(0,0,0,.15)}
+  .zn{flex:1;font-size:12.5px;line-height:1.25}
+  .zn b{display:block;font-size:13px}
+  .zn small{color:var(--gris);font-size:11px}
+  .price{font-weight:700;font-size:13px;white-space:nowrap}
+  .price.free{color:var(--vert)}
+  .price.quote{color:var(--gris);font-weight:600;font-style:italic}
+
+  .tools{display:flex;gap:8px;margin-top:12px}
+  .tools button{flex:1;border:1px solid rgba(31,46,87,.18);background:#f7f9fc;color:var(--marine);padding:8px 6px;border-radius:8px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit}
+  .tools button:hover{background:#eef3fb;border-color:var(--bleu)}
+  .tools button.on{background:var(--bleu);color:#fff;border-color:var(--bleu)}
+  .tools button:disabled{opacity:.45;cursor:default;background:#f2f4f7}
+  .tools button.wide{width:100%;flex:none}
+
+  .note{margin-top:12px;font-size:10.5px;line-height:1.4;color:var(--gris)}
+  .note b{color:var(--marine)}
+
+  .ring-label{background:rgba(15,23,42,.82);color:#fff;font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid rgba(255,255,255,.18)}
+  .home-label{background:var(--bleu);color:#fff;font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:7px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+  .leaflet-container{background:#0b1220}
+  .credits{position:absolute;left:14px;bottom:10px;z-index:900;font-size:10px;color:#cfd6e0;text-shadow:0 1px 2px rgba(0,0,0,.8)}
+
+  .hint{display:none;font-size:11.5px;color:#9fb4e0;margin-top:1px}
+  /* --- Mobile : le panneau devient une barre haute, repliée par défaut --- */
+  @media (max-width:640px){
+    #panel{top:0;left:0;right:0;width:100%;max-width:100%;border-radius:0 0 14px 14px;box-shadow:0 6px 18px rgba(10,18,34,.30)}
+    #panel .head{padding:11px 14px}
+    #panel .body{max-height:60vh;overflow:auto;-webkit-overflow-scrolling:touch}
+    .tools button{padding:11px 6px;font-size:12px}
+    #panel.collapsed .sub{display:none}
+    #panel.collapsed .hint{display:block}
+  }
+  body.exporting .tools,body.exporting .chev,body.exporting .credits{visibility:hidden}
+  #busy{position:absolute;inset:0;z-index:2000;background:rgba(11,18,32,.55);color:#fff;display:none;align-items:center;justify-content:center;font-size:14px;font-weight:600}
+  #busy.on{display:flex}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="panel">
+  <div class="head" id="panelHead">
+    <div class="logo">SKP</div>
+    <div class="t"><b>SKP SOLUTIONS</b><span class="sub">Zones de déplacement — expertise bâtiment</span><span class="hint">Appuyez pour voir les tarifs ▾</span></div>
+    <div class="chev">▾</div>
+  </div>
+  <div class="body">
+    <ul class="legend">
+      <li><span class="sw" style="background:#16a34a"></span><span class="zn"><b>Zone incluse</b><small>0 – 50 km</small></span><span class="price free">0 €</span></li>
+      <li><span class="sw" style="background:#f59e0b"></span><span class="zn"><b>Zone 1</b><small>50 – 120 km</small></span><span class="price">≈ 135 €</span></li>
+      <li><span class="sw" style="background:#ea580c"></span><span class="zn"><b>Zone 2</b><small>120 – 180 km</small></span><span class="price">≈ 235 €</span></li>
+      <li><span class="sw" style="background:#dc2626"></span><span class="zn"><b>Zone 3</b><small>180 – 200 km</small></span><span class="price">≈ 300 €</span></li>
+      <li><span class="sw" style="background:#334155;border-style:dashed"></span><span class="zn"><b>Au-delà</b><small>+ 200 km</small></span><span class="price quote">sur devis</span></li>
+    </ul>
+
+    <div class="tools">
+      <button id="btnSat" class="on">Satellite</button>
+      <button id="btnLabels" class="on">Noms de villes</button>
+      <button id="btnFit">Recentrer</button>
+    </div>
+    <div class="tools">
+      <button id="btnExport" class="wide">⬇ Exporter l'image (PNG)</button>
+    </div>
+
+    <p class="note">
+      Distances <b>à vol d'oiseau</b> depuis Sainte-Pazanne (44). Forfait <b>aller-retour</b>,
+      couverture véhicule (base barème kilométrique 4 CV). La route réelle peut ajouter ~30 %.
+      Au-delà de 200 km : <b>sur devis</b>.
+    </p>
+  </div>
+</div>
+
+<div class="credits" id="credits">Satellite : Esri · Noms : © OpenStreetMap, CARTO</div>
+<div id="busy">Génération de l'image…</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+  var HOME=[47.104,-1.808]; // Sainte-Pazanne (La Bazonnière)
+  var map=L.map('map',{center:HOME,zoom:8,zoomControl:false,attributionControl:false});
+  L.control.zoom({position:'bottomright'}).addTo(map);
+
+  // Base satellite
+  var sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,crossOrigin:true}).addTo(map);
+  // Base plan (français, secours)
+  var plan=L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',{maxZoom:20,subdomains:'abc',crossOrigin:true});
+  // Calque de NOMS natif, en français (données OSM), qui s'affine au zoom jusqu'aux petites communes
+  var labels=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/dark_only_labels/{z}/{x}/{y}.png',{maxZoom:20,subdomains:'abcd',crossOrigin:true}).addTo(map);
+
+  // Zones : du plus grand au plus petit → anneaux distincts
+  [{r:200000,c:'#dc2626',l:'200 km'},{r:180000,c:'#ea580c',l:'180 km'},{r:120000,c:'#f59e0b',l:'120 km'},{r:50000,c:'#16a34a',l:'50 km'}]
+  .forEach(function(z){
+    L.circle(HOME,{radius:z.r,color:z.c,weight:2.5,opacity:.95,fillColor:z.c,fillOpacity:.12}).addTo(map);
+    L.marker(destPoint(HOME,z.r,0),{interactive:false,icon:L.divIcon({className:'',html:'<div class="ring-label">'+z.l+'</div>',iconSize:[0,0]})}).addTo(map);
+  });
+
+  // Domicile
+  L.circleMarker(HOME,{radius:7,color:'#fff',weight:2,fillColor:'#0076E4',fillOpacity:1}).addTo(map);
+  L.marker(HOME,{interactive:false,icon:L.divIcon({className:'',html:'<div class="home-label">SKP · Sainte-Pazanne</div>',iconSize:[0,0],iconAnchor:[-10,8]})}).addTo(map);
+
+  // Cadrage sur la zone 200 km
+  var bounds=L.latLngBounds([destPoint(HOME,205000,0),destPoint(HOME,205000,180)]).extend(destPoint(HOME,205000,90)).extend(destPoint(HOME,205000,270));
+  map.fitBounds(bounds,{padding:[20,20]});
+
+  // Le calque de noms reste toujours au-dessus des fonds
+  labels.setZIndex(400); sat.setZIndex(200); plan.setZIndex(200);
+
+  var mode='sat', userLabels=true;
+  var btnSat=document.getElementById('btnSat'), btnLabels=document.getElementById('btnLabels');
+  function refresh(){
+    // En plan : OSM porte déjà ses noms → on coupe le calque pour éviter le doublon.
+    var show=(mode==='sat' && userLabels);
+    if(show && !map.hasLayer(labels)){ labels.addTo(map); labels.setZIndex(400); }
+    if(!show && map.hasLayer(labels)) map.removeLayer(labels);
+    btnLabels.classList.toggle('on',userLabels);
+    btnLabels.disabled=(mode!=='sat');
+  }
+  btnSat.addEventListener('click',function(){
+    if(mode==='sat'){ map.removeLayer(sat); plan.addTo(map); plan.setZIndex(200); mode='plan'; btnSat.textContent='Plan'; btnSat.classList.remove('on'); }
+    else { map.removeLayer(plan); sat.addTo(map); sat.setZIndex(200); mode='sat'; btnSat.textContent='Satellite'; btnSat.classList.add('on'); }
+    refresh();
+  });
+  btnLabels.addEventListener('click',function(){ userLabels=!userLabels; refresh(); });
+  document.getElementById('btnFit').addEventListener('click',function(){ map.fitBounds(bounds,{padding:[20,20]}); });
+
+  // Sur mobile, on démarre replié pour laisser voir la carte
+  if(window.innerWidth<=640){ document.getElementById('panel').classList.add('collapsed'); }
+  document.getElementById('panelHead').addEventListener('click',function(){
+    document.getElementById('panel').classList.toggle('collapsed');
+    setTimeout(function(){ map.invalidateSize(); },210);
+  });
+
+  // Export PNG (rendu navigateur)
+  var busy=document.getElementById('busy');
+  document.getElementById('btnExport').addEventListener('click',function(){
+    busy.classList.add('on'); document.body.classList.add('exporting');
+    setTimeout(function(){
+      html2canvas(document.body,{useCORS:true,allowTaint:false,backgroundColor:'#0b1220',scale:2})
+        .then(function(c){ var a=document.createElement('a'); a.download='SKP_zones_deplacement.png'; a.href=c.toDataURL('image/png'); a.click(); })
+        .catch(function(e){ alert("Export impossible sur ce navigateur — fais une capture d'écran, ça marche à tous les coups.\n\n"+e); })
+        .finally(function(){ document.body.classList.remove('exporting'); busy.classList.remove('on'); });
+    },400);
+  });
+
+  function destPoint(o,d,brng){
+    var R=6371000,lat1=o[0]*Math.PI/180,lng1=o[1]*Math.PI/180,b=brng*Math.PI/180,ad=d/R;
+    var lat2=Math.asin(Math.sin(lat1)*Math.cos(ad)+Math.cos(lat1)*Math.sin(ad)*Math.cos(b));
+    var lng2=lng1+Math.atan2(Math.sin(b)*Math.sin(ad)*Math.cos(lat1),Math.cos(ad)-Math.sin(lat1)*Math.sin(lat2));
+    return [lat2*180/Math.PI,lng2*180/Math.PI];
+  }
+</script>
+</body>
+</html>
